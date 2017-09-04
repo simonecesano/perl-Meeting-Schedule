@@ -1,5 +1,7 @@
 package Meeting::Schedule;
 
+# ABSTRACT: Meeting schedule module 
+
 use Mojo::Base -base;
 use List::Util qw(shuffle);
 use List::MoreUtils qw(first_index uniq indexes);
@@ -7,6 +9,8 @@ use Data::Dump qw/dump/;
 
 use DateTime;
 use Memoize;
+
+use Meeting::Util;
 
 memoize(qw/period periods/);
 
@@ -24,55 +28,55 @@ has [qw/start end/] => sub { DateTime->new };
 
 
 sub new {
-	my $self = shift->SUPER::new(@_);
-
-	my ($start_time, $end_time) = (9, 17);
-	my $interval = $self->interval;
-	my $start = $self->start;
-	
-	my @periods =  map { $start->clone->add(minutes => $interval * $_) } (0..($self->length - 1));
-	
-	my @s = indexes { my $s = $_->hour;
-			  my $e = $_->clone->add(minutes => $interval)->hour;
-			  return
-			      $_->day_of_week <= 5
-			      && ($s >= $start_time)
-			      && ($e <= $end_time)
-			      && ($s <= $e)
+    my $self = shift->SUPER::new(@_);
+    
+    my ($start_time, $end_time) = (9, 17);
+    my $interval = $self->interval;
+    my $start = $self->start;
+    
+    my @periods =  map { $start->clone->add(minutes => $interval * $_) } (0..($self->length - 1));
+    
+    my @s = indexes { my $s = $_->hour;
+		      my $e = $_->clone->add(minutes => $interval)->hour;
+		      return
+			  $_->day_of_week <= 5
+			  && ($s >= $start_time)
+			  && ($e <= $end_time)
+			  && ($s <= $e)
 		      } @periods;
-
-	$self->working_slots(\@s);
-	$self->periods(\@periods);
-	return $self;
+    
+    $self->working_slots(\@s);
+    $self->periods(\@periods);
+    return $self;
 }
 
 sub period { shift->periods->[shift] };
 
 sub add_person {
-	my $self = shift;
-	my $person = shift;
-	# my $rank = $person->rank;
-
-	$person->schedule($self);
-
-	push @{$self->people}, $person;
-
-	if ((scalar @{$self->people}) == 1) { $self->people->[0]->me(1) } 
-
-	# sort after inserting
-	my $p = $#{$self->people};
-	if ((scalar @{$self->people}) > 2) {
-	    $self->people([ $self->people->[0], (map { $_->[0] } sort { $a->[1] <=> $b->[1] } map { $_ = [$_, $_->rank ]} @{$self->people}[1..$p]) ]);
-	}
+    my $self = shift;
+    my $person = shift;
+    # my $rank = $person->rank;
+    
+    $person->schedule($self);
+    
+    push @{$self->people}, $person;
+    
+    if ((scalar @{$self->people}) == 1) { $self->people->[0]->me(1) } 
+    
+    # sort after inserting
+    my $p = $#{$self->people};
+    if ((scalar @{$self->people}) > 2) {
+	$self->people([ $self->people->[0], (map { $_->[0] } sort { $a->[1] <=> $b->[1] } map { $_ = [$_, $_->rank ]} @{$self->people}[1..$p]) ]);
+    }
 };
 
 sub people_available_at {
-	my $self = shift;
-	my $slot = shift;
-
-	my @people = @{$self->people};
-
-	return grep { $_->freebusy->[$slot] == 0 } @people;
+    my $self = shift;
+    my $slot = shift;
+    
+    my @people = @{$self->people};
+    
+    return grep { $_->freebusy_array->[$slot] == 0 } @people;
 }
 
 sub used_slots {
@@ -81,10 +85,10 @@ sub used_slots {
 }
 
 sub fill_quota {
-	my $self = shift;
-	my $slot = shift;
-	
-	if (defined $slot) { return $self->fills->{$slot} || 0 } else { return %{$self->fills} }
+    my $self = shift;
+    my $slot = shift;
+    
+    if (defined $slot) { return $self->fills->{$slot} || 0 } else { return %{$self->fills} }
 }
 
 sub people_in_slot {
@@ -106,7 +110,7 @@ sub schedule {
 	if ($i++ > 1) {
 	    # assign to earliest already used slot
 	    for ($self->used_slots) {
-		if ($p->freebusy->[$_] == 0 && $self->fill_quota($_) < $q) {
+		if ($p->freebusy_array->[$_] == 0 && $self->fill_quota($_) < $q) {
 		    $p->slot($_);
 		    last;
 		}
