@@ -4,12 +4,14 @@ require Exporter;
 
 use POSIX qw(floor ceil);
 use List::Util qw/reduce/;
-use List::MoreUtils qw/pairwise any/;
+use List::MoreUtils qw/pairwise any none/;
 
 use DateTime;
 use DateTime::Event::Recurrence;
 
 use strict;
+
+use Mojo::JSON qw(decode_json encode_json);
 
 our @ISA = qw(Exporter);
 
@@ -58,47 +60,52 @@ sub slot_to_start {
     return $start->clone->add(minutes => $interval * ($slot + $duration))
 }
 
+sub validate {
+    my $h = shift;
+    my ($freq) = keys %{$h};
+
+    my $tz = delete $h->{$freq}->{time_zone};
+    unless ( exists $h->{$freq}->{start} ) { $h->{$freq}->{start} = delete $h->{$freq} }
+
+    my $f = $h->{$freq};
+    if ($f->{start}->{days}
+	&& !$f->{end}->{days}) {
+	if (none { $f->{end}->{$_} } qw/minutes hours seconds/ ) {
+	    $f->{end}->{days} = [ map { 1 + ($_ % 7) } @{$f->{start}->{days}}]
+	} else {
+	    $f->{end}->{days} = [ @{$f->{start}->{days}} ]
+	}
+    }
+    return ($freq, $tz, $f);
+}
 
 sub recurrence {
     my $h = shift;
     my ($start, $interval, $length) = @_;
-
     my $end = $start->clone->add(minutes => $interval * $length);
 
-    my ($freq) = keys %{$h};
-
-    my $tz = delete $h->{$freq}->{time_zone};
-
-    unless ( exists $h->{$freq}->{start} ) { $h->{$freq}->{start} = delete $h->{$freq} }
-
+    my ($freq, $tz, $f) = validate($h);
     my ($sign, $sub) = $freq =~ /([+-]*)(.+)/;
-    my (@starts, @ends, $recurrence);
 
+    my $recurrence;
 
-    my $recurrence = DateTime::Event::Recurrence->$sub( %{$h->{$freq}->{start}} );
-    $recurrence->set_time_zone( $tz ) if $tz;
-    @starts = $recurrence->as_list( start => $start, end => $end );
-
-    print join ', ', @starts;
-    
-    if ($h->{$freq}->{end}) {
-	my $recurrence = DateTime::Event::Recurrence->$sub( %{$h->{$freq}->{end}} );
-	$recurrence->set_time_zone( $tz ) if $tz;
-	@ends = $recurrence->as_list( start => $start, end => $end );
-    } else {
-	@ends = map { $_->clone->set(hour => 0, minute => 0, second => 0)->add( days => 1 ) } @starts;
+    for (qw/end start/) {
+	$recurrence->{$_} = DateTime::Event::Recurrence->$sub( %{$f->{$_}} );
+	$recurrence->{$_}->set_time_zone( $tz ) if $tz;
     }
-    print join ', ', @ends;
 
+    my @starts = $recurrence->{start}->as_list( start => $start, end => $end );
+    my @ends   = $recurrence->{end}->as_list( start => $starts[0], end => $end );
+
+    if ($ends[0] <= $starts[0]) { unshift @starts, $start };
     if ((scalar @ends) < (scalar @starts)) { push @ends, $end }
-    if ((scalar @ends) > (scalar @starts)) { push @starts, $end }
-
     
     my $freebusy = all_busy(map {
-	if ($_->[0] > $_->[1]) { $_->[1]->add(days => 1) }
 	busy_string($_->[0], $_->[1], $start, $interval, $length)
     } pairwise { [$a, $b ] } @starts, @ends);
+
     unless ($sign eq '-') { $freebusy =~ tr/01234/20000/ }
+
     return $freebusy;
 }
 
