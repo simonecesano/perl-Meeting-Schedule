@@ -59,11 +59,34 @@ Returns whether the free/busy string shows free at a given point and for a given
 
 ### free\_slots
 
+    sub free_slots($freebusy, $start, $interval, $tentative) = @_;
+
 Returns a list of start and end times of free slots for a free/busy string
 
+    my $dt = DateTime->new( year => 2017, month => 10, day => 9, hour => 9, minute => 0, second => 0, time_zone => 'Europe/Berlin', );
+
+    free_slots('0001110011100001001000111001', $dt, 30, 0)
+
+    #   2017-10-09T09:00:00 - 2017-10-09T10:30:00
+    #   2017-10-09T12:00:00 - 2017-10-09T13:00:00
+    #   2017-10-09T14:30:00 - 2017-10-09T16:30:00
+    #   2017-10-09T17:00:00 - 2017-10-09T18:00:00
+    #   2017-10-09T18:30:00 - 2017-10-09T20:00:00
+    #   2017-10-09T21:30:00 - 2017-10-09T22:30:00
+	
 ### slot\_to\_start
 
+    sub slot_to_start($slot, $start, $interval, $duration);
+
 Returns the start time for a given slot and interval
+
+    my $dt = DateTime->new( year => 2017, month => 10, day => 9, hour => 9, minute => 0, second => 0, time_zone => 'Europe/Berlin', );
+
+    slot_to_start(3, $dt, 30)
+    #   2017-10-09T10:30:00
+
+    slot_to_start(5, $dt, 30, 4)
+    #   2017-10-09T13:30:00
 
 ### recurrence
 
