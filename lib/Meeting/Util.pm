@@ -192,15 +192,62 @@ Returns whether the free/busy string shows free at a given point and for a given
 
 =head2 free_slots
 
+=head2 free_slots
+
+  sub free_slots($freebusy, $start, $interval, $tentative) = @_;
+
 Returns a list of start and end times of free slots for a free/busy string
+
+  my $dt = DateTime->new( year => 2017, month => 10, day => 9, hour => 9, minute => 0, second => 0, time_zone => 'Europe/Berlin', );
+
+  free_slots('0001110011100001001000111001', $dt, 30, 0)
+
+  #   2017-10-09T09:00:00 - 2017-10-09T10:30:00
+  #   2017-10-09T12:00:00 - 2017-10-09T13:00:00
+  #   2017-10-09T14:30:00 - 2017-10-09T16:30:00
+  #   2017-10-09T17:00:00 - 2017-10-09T18:00:00
+  #   2017-10-09T18:30:00 - 2017-10-09T20:00:00
+  #   2017-10-09T21:30:00 - 2017-10-09T22:30:00
 
 =head2 slot_to_start
 
+  sub slot_to_start($slot, $start, $interval, $duration);
+
 Returns the start time for a given slot and interval
+
+  my $dt = DateTime->new( year => 2017, month => 10, day => 9, hour => 9, minute => 0, second => 0, time_zone => 'Europe/Berlin', );
+
+  slot_to_start(3, $dt, 30)
+  #   2017-10-09T10:30:00
+
+  slot_to_start(5, $dt, 30, 4)
+  #   2017-10-09T13:30:00
 
 =head2 recurrence
 
-Returns a free/busy string for given recurring working hours or busy times
+  sub recurrence($recurrence, $start, $interval, $length);
+
+Returns a free/busy string for given recurring working hours or busy times. Recurrence is defined according to the API in DateTime::Event::Recurrence. 
+If the recurrence key starts with a minus sign, availability is negates 
+
+  my $dt = DateTime->new( year => 2017, month => 10, day => 7, hour => 0, minute => 0, second => 0, time_zone => 'Europe/Berlin', );
+  #   2017-10-07T00:00:00 - Saturday
+  
+  recurrence({ daily => { start => { hours => 9, minutes => 0 }, end => { hours => 18, minutes => 0 }, time_zone => "Europe/Berlin", }, }, $dt, 60, 200)
+  #   daily 9-to-18 workday
+  #   22222222200000000022222222222222200000000022222222222222200000000022222222222222200000000022222222222222200000000022222222222222200000000022222222222222200000000022222222222222200000000022222222222222
+  
+  recurrence({ daily => { start => { hours => 8, minutes => 0 }, end => { hours => 17, minutes => 0 }, time_zone => "America/Los_Angeles", }, }, $dt, 60, 200)
+  #   daily 8AM-to-5PM workday in L.A.
+  #   22222222222222222000000000222222222222222000000000222222222222222000000000222222222222222000000000222222222222222000000000222222222222222000000000222222222222222000000000222222222222222000000000222222
+  
+  recurrence({ -daily => { start => { hours => 12, minutes => 0 }, end => { hours => 13, minutes => 0 }, time_zone => "Europe/Berlin", }, }, $dt, 60, 200)
+  # daily lunch break 1 hour at 12:00 
+  #   00000000000020000000000000000000000020000000000000000000000020000000000000000000000020000000000000000000000020000000000000000000000020000000000000000000000020000000000000000000000020000000000000000000
+  
+  recurrence({ -weekly => { days => [6, 7], time_zone => "Europe/Berlin" } }, $dt, 60, 200)
+  # unavailable on weekends
+  #   22222222222222222222222222222222222222222222222200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000022222222222222222222222222222222
 
 =head2 intersection(\@@)
 
