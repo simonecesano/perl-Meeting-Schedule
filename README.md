@@ -90,7 +90,33 @@ Returns the start time for a given slot and interval
 
 ### recurrence
 
-Returns a free/busy string for given recurring working hours or busy times
+    sub recurrence($recurrence, $start, $interval, $length);
+
+Returns a free/busy string for given recurring working hours or busy times. Recurrence is defined according to the API in DateTime::Event::Recurrence. 
+If the recurrence key starts with a minus sign, availability is negates 
+
+    my $dt = DateTime->new( year => 2017, month => 10, day => 7, hour => 0, minute => 0, second => 0, time_zone => 'Europe/Berlin', );
+    #   2017-10-07T00:00:00 - Saturday
+    
+    recurrence({ daily => { start => { hours => 9, minutes => 0 }, end => { hours => 18, minutes => 0 }, time_zone => "Europe/Berlin", }, }, $dt, 60, 200)
+    
+    #   daily 9-to-18 workday
+    #   22222222200000000022222222222222200000000022222222222222200000000022222222222222200000000022222222222222200000000022222222222222200000000022222222222222200000000022222222222222200000000022222222222222
+    
+    recurrence({ daily => { start => { hours => 8, minutes => 0 }, end => { hours => 17, minutes => 0 }, time_zone => "America/Los_Angeles", }, }, $dt, 60, 200)
+
+    #   daily 8AM-to-5PM workday in L.A.
+    #   22222222222222222000000000222222222222222000000000222222222222222000000000222222222222222000000000222222222222222000000000222222222222222000000000222222222222222000000000222222222222222000000000222222
+    
+    recurrence({ -daily => { start => { hours => 12, minutes => 0 }, end => { hours => 13, minutes => 0 }, time_zone => "Europe/Berlin", }, }, $dt, 60, 200)
+
+    # daily lunch break 1 hour at 12:00 
+    #   00000000000020000000000000000000000020000000000000000000000020000000000000000000000020000000000000000000000020000000000000000000000020000000000000000000000020000000000000000000000020000000000000000000
+    
+    recurrence({ -weekly => { days => [6, 7], time_zone => "Europe/Berlin" } }, $dt, 60, 200)
+
+    # unavailable on weekends
+    #   22222222222222222222222222222222222222222222222200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000022222222222222222222222222222222
 
 ### intersection(\\@@)
 
