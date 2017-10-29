@@ -95,7 +95,7 @@ sub recurrence {
     }
 
     my @starts = $recurrence->{start}->as_list( start => $start, end => $end );
-    my @ends   = $recurrence->{end}->as_list( start => $starts[0], end => $end );
+    my @ends   = $recurrence->{end}->as_list( start => $start, end => $end );
 
     if ($ends[0] <= $starts[0]) { unshift @starts, $start };
     if ((scalar @ends) < (scalar @starts)) { push @ends, $end }
